@@ -2,156 +2,359 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#2e7d32">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#e8f5e9">
 <title>Karahindiba 🌼</title>
+
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#eaf5e9;color:#24532b;font-family:Arial,sans-serif;text-align:center;padding:20px}
+body{
+margin:0;padding:18px;text-align:center;
+font-family:Arial,sans-serif;
+background:linear-gradient(#e8f5e9,#c8e6c9);
+color:#24532b;
+}
 h1{font-size:32px;margin:15px}
-p{font-size:16px}
-.card{background:white;border-radius:22px;padding:20px;max-width:450px;margin:15px auto;box-shadow:0 4px 15px #0001}
-canvas{width:100%;max-width:340px;height:280px}
-button{border:0;border-radius:15px;background:#2e7d32;color:white;padding:16px 30px;font-size:18px;margin:8px;cursor:pointer}
+.card{
+max-width:430px;margin:15px auto;
+background:white;padding:20px;
+border-radius:24px;
+box-shadow:0 5px 20px #0001;
+}
+canvas{width:100%;height:auto}
+button{
+background:#2e7d32;color:white;
+border:0;border-radius:16px;
+padding:16px 30px;font-size:18px;
+margin:12px;cursor:pointer;
+}
 button:disabled{opacity:.5}
-.bar{height:18px;background:#dcebdc;border-radius:20px;overflow:hidden;margin:15px 0}
-#fill{height:100%;width:0;background:#43a047;transition:width .1s}
-.stat{font-size:19px;font-weight:bold;margin:12px}
+.bar{
+height:18px;background:#dcebdc;
+border-radius:20px;overflow:hidden;
+margin:15px 0;
+}
+#fill{height:100%;width:0;background:#43a047}
+.stat{font-size:18px;margin:12px}
 #message{min-height:45px;font-weight:bold}
-small{display:block;margin-top:20px;color:#55715a;line-height:1.5}
+small{line-height:1.6;display:block;color:#55715a}
 </style>
 </head>
+
 <body>
+
 <h1>🌼 Karahindiba</h1>
-<p>Bir nefesle tohumlarını özgür bırak!</p>
+<p>Derin bir nefes al ve tohumlarını özgür bırak!</p>
 
 <div class="card">
 <canvas id="flower" width="340" height="280"></canvas>
+
 <div id="message">Hazırsan başlayalım!</div>
+
 <button id="start">Başla 🌬️</button>
+
 <div class="bar"><div id="fill"></div></div>
-<div class="stat">Üfleme gücü: <span id="power">0</span>%</div>
-<div class="stat">Süre: <span id="time">0.0</span> saniye</div>
+
+<div class="stat">
+Üfleme gücü: <span id="power">0</span>%
+</div>
+
+<div class="stat">
+Üfleme süresi: <span id="time">0.0</span> saniye
+</div>
 </div>
 
 <div class="card" id="result" hidden>
-<h2>🌱 Sonuçların</h2>
-<div class="stat">Üfleme süresi: <span id="duration">0</span> sn</div>
+<h2>🌱 Harika iş çıkardın!</h2>
+<div class="stat">Süre: <span id="duration">0</span> sn</div>
 <div class="stat">Dengelilik: <span id="balance">0</span>%</div>
-<div class="stat">Oyun puanı: <span id="score">0</span>/100</div>
-<div class="stat">En uzun rekor: <span id="record">0</span> sn</div>
-<button onclick="location.reload()">Tekrar oyna ↻</button>
+<div class="stat">Puanın: <span id="score">0</span>/100</div>
+<div class="stat">Rekorun: <span id="record">0</span> sn</div>
+<button id="again">Tekrar oyna ↻</button>
 </div>
 
-<small>Rahat nefes al, zorlama; başın dönerse bırak ve normal nefes al.<br>Bu oyun yalnızca mikrofon ses şiddetini ölçer. Nefesi veya akciğer kapasitesini ölçmez. Ses kaydedilmez.</small>
+<small>
+Rahatça nefes al ve doğal şekilde üfle. Kendini zorlama.
+Başın dönerse oyunu bırak.
+<br>
+Bu uygulama yalnızca mikrofon ses şiddetini ölçer.
+Nefes kapasitesini ölçmez ve ses kaydetmez.
+</small>
 
 <script>
-const c=document.getElementById("flower"),ctx=c.getContext("2d");
-const seeds=Array.from({length:40},(_,i)=>({
- a:i*Math.PI*2/40,r:70,fly:false,x:170,y:105,vx:0,vy:0
-}));
-let stream,ac,analyser,data,active=false,startTime=0,lastBlow=0;
-let ambient=0,threshold=.03,values=[],duration=0;
+const canvas=document.getElementById("flower");
+const ctx=canvas.getContext("2d");
+
 const $=id=>document.getElementById(id);
 
-function draw(){
- ctx.clearRect(0,0,340,280);
- ctx.strokeStyle="#398b43";ctx.lineWidth=3;
- ctx.beginPath();ctx.moveTo(170,115);ctx.lineTo(170,265);ctx.stroke();
- ctx.fillStyle="#398b43";ctx.beginPath();ctx.ellipse(145,220,25,9,-.4,0,7);ctx.fill();
- ctx.fillStyle="#fff";
- ctx.beginPath();ctx.arc(170,105,9,0,7);ctx.fill();
- seeds.forEach(s=>{
- if(!s.fly){
- s.x=170+Math.cos(s.a)*s.r;s.y=105+Math.sin(s.a)*s.r;
- ctx.strokeStyle="#91b79a";ctx.beginPath();ctx.moveTo(170,105);ctx.lineTo(s.x,s.y);ctx.stroke();
- ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(s.x,s.y,3,0,7);ctx.fill();
- }else{
- s.x+=s.vx;s.y+=s.vy;s.vy+=.015;
- ctx.strokeStyle="#91b79a";ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x-7,s.y-5);ctx.stroke();
- ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(s.x,s.y,3,0,7);ctx.fill();
- }
- });
- requestAnimationFrame(draw);
+let seeds=[];
+let analyser,stream,audio;
+let active=false;
+let firstBlow=false;
+let startTime=0,lastBlow=0;
+let threshold=.012;
+let values=[];
+let released=0;
+let blown=0;
+let animation;
+
+function resetSeeds(){
+seeds=Array.from({length:40},(_,i)=>({
+angle:i*Math.PI*2/40,
+fly:false,x:170,y:105,
+vx:0,vy:0,size:3
+}));
 }
+
+resetSeeds();
+
+function draw(){
+ctx.clearRect(0,0,340,280);
+
+// Gövde
+ctx.strokeStyle="#388e3c";
+ctx.lineWidth=4;
+ctx.beginPath();
+ctx.moveTo(170,110);
+ctx.quadraticCurveTo(165,190,170,265);
+ctx.stroke();
+
+// Yaprak
+ctx.fillStyle="#4caf50";
+ctx.beginPath();
+ctx.ellipse(145,220,25,9,-.4,0,Math.PI*2);
+ctx.fill();
+
+// Tohumlar
+seeds.forEach(s=>{
+if(!s.fly){
+let x=170+Math.cos(s.angle)*72;
+let y=105+Math.sin(s.angle)*72;
+
+ctx.strokeStyle="#a5c8a7";
+ctx.lineWidth=1;
+ctx.beginPath();
+ctx.moveTo(170,105);
+ctx.lineTo(x,y);
+ctx.stroke();
+
+ctx.fillStyle="#fff";
+ctx.beginPath();
+ctx.arc(x,y,3,0,Math.PI*2);
+ctx.fill();
+ctx.strokeStyle="#8aaa8d";
+ctx.stroke();
+}else{
+s.x+=s.vx;
+s.y+=s.vy;
+s.vy+=.018;
+s.vx*=.995;
+
+ctx.save();
+ctx.translate(s.x,s.y);
+ctx.rotate(Math.atan2(s.vy,s.vx));
+ctx.strokeStyle="#91b79a";
+ctx.beginPath();
+ctx.moveTo(-9,0);
+ctx.lineTo(0,0);
+ctx.stroke();
+ctx.fillStyle="white";
+ctx.beginPath();
+ctx.arc(0,0,3,0,Math.PI*2);
+ctx.fill();
+ctx.restore();
+}
+});
+
+animation=requestAnimationFrame(draw);
+}
+
 draw();
 
 function rms(){
- let sum=0;
- for(let i=0;i<data.length;i++)sum+=data[i]*data[i];
- return Math.sqrt(sum/data.length);
+let data=new Float32Array(analyser.fftSize);
+analyser.getFloatTimeDomainData(data);
+
+let sum=0;
+for(let i=0;i<data.length;i++){
+sum+=data[i]*data[i];
+}
+return Math.sqrt(sum/data.length);
+}
+
+function flySeed(power){
+let s=seeds.find(x=>!x.fly);
+if(!s)return;
+
+s.fly=true;
+s.x=170+Math.cos(s.angle)*72;
+s.y=105+Math.sin(s.angle)*72;
+
+s.vx=Math.cos(s.angle)*2+
+(Math.random()-.5)*2+power*5;
+
+s.vy=Math.sin(s.angle)*2-
+power*4-Math.random()*2;
+
+blown++;
 }
 
 async function begin(){
- try{
- $("start").disabled=true;
- $("message").textContent="Mikrofon izni bekleniyor...";
- stream=await navigator.mediaDevices.getUserMedia({audio:true});
- ac=new AudioContext();
- const source=ac.createMediaStreamSource(stream);
- analyser=ac.createAnalyser();analyser.fftSize=2048;
- source.connect(analyser);
- data=new Float32Array(analyser.fftSize);
- $("message").textContent="Sessiz ol...";
- await new Promise(r=>setTimeout(r,1000));
- let samples=[];
- for(let i=0;i<10;i++){
- analyser.getFloatTimeDomainData(data);
- samples.push(rms());await new Promise(r=>setTimeout(r,50));
- }
- ambient=Math.max(...samples);
- threshold=Math.max(.03,ambient*2);
- $("message").textContent="Rahatça nefes al ve yavaşça üfle!";
- active=true;startTime=Date.now();lastBlow=Date.now();
- measure();
- }catch(e){
- $("message").textContent="Mikrofon açılamadı. Sayfayı HTTPS üzerinden açıp izin ver.";
- $("start").disabled=false;
- }
+try{
+$("start").disabled=true;
+$("result").hidden=true;
+resetSeeds();
+
+firstBlow=false;
+values=[];
+blown=0;
+
+$("message").textContent="Mikrofon izni bekleniyor...";
+
+stream=await navigator.mediaDevices.getUserMedia({
+audio:{
+echoCancellation:false,
+noiseSuppression:false,
+autoGainControl:false
+}
+});
+
+audio=new AudioContext();
+await audio.resume();
+
+let source=audio.createMediaStreamSource(stream);
+analyser=audio.createAnalyser();
+analyser.fftSize=2048;
+source.connect(analyser);
+
+$("message").textContent="Sessiz ol, ortam sesini ölçüyorum...";
+
+let samples=[];
+for(let i=0;i<15;i++){
+samples.push(rms());
+await new Promise(r=>setTimeout(r,60));
+}
+
+let average=samples.reduce((a,b)=>a+b,0)/samples.length;
+
+threshold=Math.max(.009,average*2.0);
+
+startTime=Date.now();
+lastBlow=startTime;
+active=true;
+
+$("message").textContent="Şimdi yavaşça karahindibaya üfle! 🌬️";
+
+measure();
+
+}catch(e){
+$("message").textContent=
+"Mikrofon açılamadı. Tarayıcı izinlerini kontrol et.";
+$("start").disabled=false;
+}
 }
 
 function measure(){
- if(!active)return;
- analyser.getFloatTimeDomainData(data);
- let level=rms(),now=Date.now();
- let blowing=level>threshold;
- $("power").textContent=Math.min(100,Math.round(level/Math.max(threshold,.03)*50));
- $("fill").style.width=Math.min(100,level/Math.max(threshold,.03)*50)+"%";
- $("time").textContent=((now-startTime)/1000).toFixed(1);
- if(blowing){
- lastBlow=now;values.push(level);
- let remaining=seeds.filter(s=>!s.fly);
- if(remaining.length){
- let s=remaining[0];s.fly=true;
- s.x=170+Math.cos(s.a)*70;s.y=105+Math.sin(s.a)*70;
- s.vx=(Math.random()-.5)*5+2;s.vy=-Math.random()*4-1;
- }
- }else if(now-lastBlow>600){
- finish();return;
- }
- requestAnimationFrame(measure);
+if(!active)return;
+
+let now=Date.now();
+let level=rms();
+
+let strength=Math.max(0,
+Math.min(100,(level-threshold)*1800));
+
+$("power").textContent=Math.round(strength);
+$("fill").style.width=strength+"%";
+
+if(level>threshold){
+
+if(!firstBlow){
+firstBlow=true;
+startTime=now;
 }
 
-function finish(){
- active=false;
- duration=(lastBlow-startTime)/1000;
- stream.getTracks().forEach(t=>t.stop());
- ac.close();
- let avg=values.reduce((a,b)=>a+b,0)/Math.max(1,values.length);
- let variance=values.reduce((a,b)=>a+Math.pow(b-avg,2),0)/Math.max(1,values.length);
- let balance=Math.round(Math.max(0,100-Math.sqrt(variance)/Math.max(avg,.001)*100));
- let score=Math.min(100,Math.round(Math.min(duration,10)*7+balance*.3));
- let record=Math.max(Number(localStorage.record||0),duration);
- localStorage.record=record.toFixed(1);
- $("duration").textContent=duration.toFixed(1);
- $("balance").textContent=balance;
- $("score").textContent=score;
- $("record").textContent=record.toFixed(1);
- $("result").hidden=false;
- $("message").textContent="Harika! Tohumların özgürleşti! 🌼";
- $("start").disabled=false;
+lastBlow=now;
+values.push(level);
+
+let count=Math.max(1,Math.ceil(strength/25));
+
+for(let i=0;i<count;i++){
+flySeed(strength/100);
 }
+
+$("message").textContent="Tohumlar uçuyor! 🌼";
+
+}else if(!firstBlow){
+if(now-startTime>20000){
+finish();
+return;
+}
+}else if(now-lastBlow>1000){
+finish();
+return;
+}
+
+if(firstBlow){
+$("time").textContent=
+((now-startTime)/1000).toFixed(1);
+}
+
+requestAnimationFrame(measure);
+}
+
+async function finish(){
+if(!active)return;
+
+active=false;
+
+let duration=(lastBlow-startTime)/1000;
+
+stream.getTracks().forEach(t=>t.stop());
+await audio.close();
+
+let avg=values.reduce((a,b)=>a+b,0)/
+Math.max(1,values.length);
+
+let variance=values.reduce((a,b)=>
+a+Math.pow(b-avg,2),0)/Math.max(1,values.length);
+
+let balance=Math.round(Math.max(0,
+100-Math.sqrt(variance)/Math.max(avg,.001)*100));
+
+let score=Math.min(100,
+Math.round(Math.min(duration,10)*7+balance*.3));
+
+let record=0;
+try{
+record=Math.max(
+Number(localStorage.getItem("record")||0),
+duration
+);
+localStorage.setItem("record",record.toFixed(1));
+}catch(e){}
+
+$("duration").textContent=duration.toFixed(1);
+$("balance").textContent=balance;
+$("score").textContent=score;
+$("record").textContent=record.toFixed(1);
+
+$("result").hidden=false;
+$("message").textContent="Tebrikler! 🌼";
+
+$("start").disabled=false;
+}
+
 $("start").addEventListener("click",begin);
+$("again").addEventListener("click",()=>{
+$("time").textContent="0.0";
+$("power").textContent="0";
+$("fill").style.width="0";
+$("message").textContent="Hazırsan başlayalım!";
+$("start").disabled=false;
+$("result").hidden=true;
+resetSeeds();
+});
+
 </script>
 </body>
 </html>
