@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#2e7d32">
+<title>Karahindiba 🌼</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#eaf5e9;color:#24532b;font-family:Arial,sans-serif;text-align:center;padding:20px}
+h1{font-size:32px;margin:15px}
+p{font-size:16px}
+.card{background:white;border-radius:22px;padding:20px;max-width:450px;margin:15px auto;box-shadow:0 4px 15px #0001}
+canvas{width:100%;max-width:340px;height:280px}
+button{border:0;border-radius:15px;background:#2e7d32;color:white;padding:16px 30px;font-size:18px;margin:8px;cursor:pointer}
+button:disabled{opacity:.5}
+.bar{height:18px;background:#dcebdc;border-radius:20px;overflow:hidden;margin:15px 0}
+#fill{height:100%;width:0;background:#43a047;transition:width .1s}
+.stat{font-size:19px;font-weight:bold;margin:12px}
+#message{min-height:45px;font-weight:bold}
+small{display:block;margin-top:20px;color:#55715a;line-height:1.5}
+</style>
+</head>
+<body>
+<h1>🌼 Karahindiba</h1>
+<p>Bir nefesle tohumlarını özgür bırak!</p>
+
+<div class="card">
+<canvas id="flower" width="340" height="280"></canvas>
+<div id="message">Hazırsan başlayalım!</div>
+<button id="start">Başla 🌬️</button>
+<div class="bar"><div id="fill"></div></div>
+<div class="stat">Üfleme gücü: <span id="power">0</span>%</div>
+<div class="stat">Süre: <span id="time">0.0</span> saniye</div>
+</div>
+
+<div class="card" id="result" hidden>
+<h2>🌱 Sonuçların</h2>
+<div class="stat">Üfleme süresi: <span id="duration">0</span> sn</div>
+<div class="stat">Dengelilik: <span id="balance">0</span>%</div>
+<div class="stat">Oyun puanı: <span id="score">0</span>/100</div>
+<div class="stat">En uzun rekor: <span id="record">0</span> sn</div>
+<button onclick="location.reload()">Tekrar oyna ↻</button>
+</div>
+
+<small>Rahat nefes al, zorlama; başın dönerse bırak ve normal nefes al.<br>Bu oyun yalnızca mikrofon ses şiddetini ölçer. Nefesi veya akciğer kapasitesini ölçmez. Ses kaydedilmez.</small>
+
+<script>
+const c=document.getElementById("flower"),ctx=c.getContext("2d");
+const seeds=Array.from({length:40},(_,i)=>({
+ a:i*Math.PI*2/40,r:70,fly:false,x:170,y:105,vx:0,vy:0
+}));
+let stream,ac,analyser,data,active=false,startTime=0,lastBlow=0;
+let ambient=0,threshold=.03,values=[],duration=0;
+const $=id=>document.getElementById(id);
+
+function draw(){
+ ctx.clearRect(0,0,340,280);
+ ctx.strokeStyle="#398b43";ctx.lineWidth=3;
+ ctx.beginPath();ctx.moveTo(170,115);ctx.lineTo(170,265);ctx.stroke();
+ ctx.fillStyle="#398b43";ctx.beginPath();ctx.ellipse(145,220,25,9,-.4,0,7);ctx.fill();
+ ctx.fillStyle="#fff";
+ ctx.beginPath();ctx.arc(170,105,9,0,7);ctx.fill();
+ seeds.forEach(s=>{
+ if(!s.fly){
+ s.x=170+Math.cos(s.a)*s.r;s.y=105+Math.sin(s.a)*s.r;
+ ctx.strokeStyle="#91b79a";ctx.beginPath();ctx.moveTo(170,105);ctx.lineTo(s.x,s.y);ctx.stroke();
+ ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(s.x,s.y,3,0,7);ctx.fill();
+ }else{
+ s.x+=s.vx;s.y+=s.vy;s.vy+=.015;
+ ctx.strokeStyle="#91b79a";ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x-7,s.y-5);ctx.stroke();
+ ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(s.x,s.y,3,0,7);ctx.fill();
+ }
+ });
+ requestAnimationFrame(draw);
+}
+draw();
+
+function rms(){
+ let sum=0;
+ for(let i=0;i<data.length;i++)sum+=data[i]*data[i];
+ return Math.sqrt(sum/data.length);
+}
+
+async function begin(){
+ try{
+ $("start").disabled=true;
+ $("message").textContent="Mikrofon izni bekleniyor...";
+ stream=await navigator.mediaDevices.getUserMedia({audio:true});
+ ac=new AudioContext();
+ const source=ac.createMediaStreamSource(stream);
+ analyser=ac.createAnalyser();analyser.fftSize=2048;
+ source.connect(analyser);
+ data=new Float32Array(analyser.fftSize);
+ $("message").textContent="Sessiz ol...";
+ await new Promise(r=>setTimeout(r,1000));
+ let samples=[];
+ for(let i=0;i<10;i++){
+ analyser.getFloatTimeDomainData(data);
+ samples.push(rms());await new Promise(r=>setTimeout(r,50));
+ }
+ ambient=Math.max(...samples);
+ threshold=Math.max(.03,ambient*2);
+ $("message").textContent="Rahatça nefes al ve yavaşça üfle!";
+ active=true;startTime=Date.now();lastBlow=Date.now();
+ measure();
+ }catch(e){
+ $("message").textContent="Mikrofon açılamadı. Sayfayı HTTPS üzerinden açıp izin ver.";
+ $("start").disabled=false;
+ }
+}
+
+function measure(){
+ if(!active)return;
+ analyser.getFloatTimeDomainData(data);
+ let level=rms(),now=Date.now();
+ let blowing=level>threshold;
+ $("power").textContent=Math.min(100,Math.round(level/Math.max(threshold,.03)*50));
+ $("fill").style.width=Math.min(100,level/Math.max(threshold,.03)*50)+"%";
+ $("time").textContent=((now-startTime)/1000).toFixed(1);
+ if(blowing){
+ lastBlow=now;values.push(level);
+ let remaining=seeds.filter(s=>!s.fly);
+ if(remaining.length){
+ let s=remaining[0];s.fly=true;
+ s.x=170+Math.cos(s.a)*70;s.y=105+Math.sin(s.a)*70;
+ s.vx=(Math.random()-.5)*5+2;s.vy=-Math.random()*4-1;
+ }
+ }else if(now-lastBlow>600){
+ finish();return;
+ }
+ requestAnimationFrame(measure);
+}
+
+function finish(){
+ active=false;
+ duration=(lastBlow-startTime)/1000;
+ stream.getTracks().forEach(t=>t.stop());
+ ac.close();
+ let avg=values.reduce((a,b)=>a+b,0)/Math.max(1,values.length);
+ let variance=values.reduce((a,b)=>a+Math.pow(b-avg,2),0)/Math.max(1,values.length);
+ let balance=Math.round(Math.max(0,100-Math.sqrt(variance)/Math.max(avg,.001)*100));
+ let score=Math.min(100,Math.round(Math.min(duration,10)*7+balance*.3));
+ let record=Math.max(Number(localStorage.record||0),duration);
+ localStorage.record=record.toFixed(1);
+ $("duration").textContent=duration.toFixed(1);
+ $("balance").textContent=balance;
+ $("score").textContent=score;
+ $("record").textContent=record.toFixed(1);
+ $("result").hidden=false;
+ $("message").textContent="Harika! Tohumların özgürleşti! 🌼";
+ $("start").disabled=false;
+}
+$("start").addEventListener("click",begin);
+</script>
+</body>
+</html>
